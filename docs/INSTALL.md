@@ -1,46 +1,87 @@
 # Installation
 
-## Windows
+## Recommended installation
 
-### 1. Install Git
-
-Download:
-
-- https://git-scm.com/download/win
-
-Verify:
+Run:
 
 ```powershell
-git --version
+powershell -ExecutionPolicy Bypass -File .\scripts\one-click-install.ps1
 ```
 
-## 2. Install Node.js
+The installer attempts to prepare everything automatically.
 
-Download:
+## What the installer does
 
-- https://nodejs.org/
+### Windows packages
 
-Use Node.js 20 or newer.
+Using `winget`:
 
-Verify:
+- Git
+- Node.js
+- Python 3.12
+
+### Python environment
+
+Creates:
+
+```text
+local_free\.venv
+```
+
+Installs:
+
+- faster-whisper
+- argostranslate
+- pyttsx3
+- sounddevice
+- numpy
+- scipy
+- webrtcvad
+- rich
+
+### Translation package
+
+Automatically installs:
+
+```text
+English -> Korean Argos package
+```
+
+### Node environment
+
+Installs Node dependencies inside:
+
+```text
+app/
+```
+
+## Run application
+
+Automatic mode selection:
 
 ```powershell
-node --version
-npm --version
+powershell -ExecutionPolicy Bypass -File .\scripts\run.ps1
 ```
 
-## 3. Clone repository
+## Automatic behavior
 
-```powershell
-git clone https://github.com/Gimsphil/OpenRealTime.git
-cd OpenRealTime
+### No API key
+
+Starts:
+
+```text
+free local realtime translation mode
 ```
 
-## 4. Create environment file
+### API key exists
 
-```powershell
-copy app\.env.example app\.env
+Starts:
+
+```text
+OpenAI realtime cloud translation mode
 ```
+
+## Optional cloud mode setup
 
 Edit:
 
@@ -54,68 +95,46 @@ Set:
 OPENAI_API_KEY=your_api_key_here
 ```
 
-## 5. Install dependencies
+## Browser mode URL
 
-```powershell
-cd app
-npm install
-```
-
-## 6. Run app
-
-```powershell
-npm start
-```
-
-Open:
+Cloud mode browser app:
 
 ```text
 http://localhost:3000
 ```
 
-## Browser requirements
-
-Use:
-
-- Chrome
-- Edge
-- Brave
-
-Allow:
-
-- microphone permission
-- autoplay audio
-
 ## Troubleshooting
 
-### Missing API key
+### winget not available
 
-Expected error:
+Install manually:
 
-```text
-Missing realtime client secret
+- Git
+- Node.js
+- Python
+
+Then run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\one-click-install.ps1
 ```
 
-Fix:
+### No microphone
 
-```text
-Set OPENAI_API_KEY in app/.env
-```
+Check:
 
-### No translated audio
+- Windows microphone permission
+- browser permission
+- audio device selection
+
+### Slow local translation
 
 Possible causes:
 
-- realtime translation access not enabled
-- invalid API key
-- browser microphone denied
-- WebRTC blocked
+- CPU-only inference
+- low RAM
+- background applications
 
-### Port already used
+### Missing translated voice
 
-Change:
-
-```powershell
-$env:PORT=3010
-npm start
-```
+Check Windows speech voices.
