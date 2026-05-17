@@ -1,143 +1,129 @@
 # OpenRealTime
 
-OpenRealTime is a browser-based realtime interpretation prototype.
+OpenRealTime is a realtime interpretation prototype with two execution modes.
 
-It is designed for this flow:
+## Default mode: free local mode
 
-```text
-Speak into microphone
-  -> browser WebRTC audio track
-  -> OpenAI Realtime Translation session
-  -> translated audio playback
-  -> original and translated captions
-```
-
-## What this app does
-
-- Captures microphone audio in the browser.
-- Opens a WebRTC session for live translation.
-- Requests a short-lived realtime translation client secret from the local Node server.
-- Uses `gpt-realtime-translate` for live translation.
-- Uses `gpt-realtime-whisper` for input transcription.
-- Shows source transcript and translated transcript panels.
-- Plays translated audio while the user continues speaking.
-
-## Important model names
-
-Use the current documented lowercase API identifiers:
+No API key is required.
 
 ```text
-gpt-realtime-translate
-gpt-realtime-whisper
+Microphone
+  -> faster-whisper local STT
+  -> Argos Translate local translation
+  -> pyttsx3 local TTS
+  -> speaker output
 ```
 
-`gpt-realtime-2` is tracked as a future orchestration/agent layer. LiveKit agents had an open compatibility issue for full support, so this first runnable version uses the direct browser WebRTC translation architecture.
+## Optional mode: OpenAI realtime cloud mode
 
-## Folder structure
+Use this only when you set an API key.
+
+```text
+Browser microphone
+  -> WebRTC
+  -> gpt-realtime-translate
+  -> gpt-realtime-whisper transcription
+  -> translated audio + captions
+```
+
+## One-click Windows setup
+
+Run this from the repository root:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\one-click-install.ps1
+```
+
+The installer prepares:
+
+- Git check/install through winget
+- Node.js check/install through winget
+- Python check/install through winget
+- Node app dependencies
+- Python virtual environment
+- faster-whisper
+- Argos Translate
+- pyttsx3
+- local English -> Korean translation package
+
+## One-click run
+
+Automatic mode selection:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\run.ps1
+```
+
+Behavior:
+
+- If `app\.env` contains a real `OPENAI_API_KEY`, cloud realtime mode starts.
+- If no API key is found, free local mode starts.
+
+## Run free local mode directly
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\run-local.ps1
+```
+
+## Run cloud realtime mode directly
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\run-cloud.ps1
+```
+
+## Optional API key setup
+
+Create or edit:
+
+```text
+app\.env
+```
+
+Set:
+
+```env
+OPENAI_API_KEY=your_api_key_here
+```
+
+Leave it empty to use the free local mode.
+
+## Repository structure
 
 ```text
 OpenRealTime/
   app/
     package.json
     server.js
-    public/
-      index.html
+    .env.example
+  local_free/
+    requirements.txt
+    realtime_local_translation.py
   docs/
     INSTALL.md
-    ARCHITECTURE.md
     REFERENCES.md
-    ROADMAP.md
+    MODES.md
   scripts/
-    bootstrap-windows.ps1
-    run-windows.ps1
+    one-click-install.ps1
+    run.ps1
+    run-local.ps1
+    run-cloud.ps1
 ```
-
-## Quick start
-
-```powershell
-git clone https://github.com/Gimsphil/OpenRealTime.git
-cd OpenRealTime
-copy app\.env.example app\.env
-notepad app\.env
-```
-
-Put your API key in:
-
-```env
-OPENAI_API_KEY=your_api_key_here
-```
-
-Then run:
-
-```powershell
-cd app
-npm install
-npm start
-```
-
-Open:
-
-```text
-http://localhost:3000
-```
-
-## Windows one-command setup
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap-windows.ps1
-```
-
-Then edit:
-
-```text
-app\.env
-```
-
-Run:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\run-windows.ps1
-```
-
-## Verification
-
-Health check:
-
-```text
-http://localhost:3000/health
-```
-
-Expected result:
-
-```json
-{"status":"ok","service":"OpenRealTime"}
-```
-
-## Required tools
-
-- Git
-- Node.js 20 or newer
-- A modern browser with microphone and WebRTC support
-- OpenAI API key with realtime translation access
 
 ## Current status
 
 Implemented:
 
-- Node server
-- Static browser app
-- Microphone capture
-- WebRTC peer connection
-- Data channel event handling
-- Realtime client secret creation endpoint
-- SDP exchange against realtime translation calls endpoint
-- Caption panels
-- Translated audio playback
+- API-key optional architecture
+- Free local realtime mode
+- OpenAI realtime cloud mode
+- One-click Windows installer
+- Automatic run-mode selection
+- Local STT / translation / TTS pipeline
+- Browser WebRTC cloud translation UI
 
-Not included:
+Known limitations:
 
-- Billing/account system
-- Production deployment hardening
-- LiveKit room integration
-- Twilio phone bridge
-- Redis persistence
+- Local mode quality depends on CPU/GPU speed.
+- Local TTS voice depends on the Windows installed voices.
+- Argos Translate currently auto-installs English -> Korean by default.
+- Cloud mode requires OpenAI realtime access.
