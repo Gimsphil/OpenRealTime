@@ -1,0 +1,8 @@
+faster-whisper
+sounddevice
+numpy
+scipy
+argostranslate
+pyttsx3
+webrtcvad
+rich
