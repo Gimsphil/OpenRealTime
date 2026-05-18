@@ -8,6 +8,12 @@ function Test-CommandExists {
     return [bool](Get-Command $Command -ErrorAction SilentlyContinue)
 }
 
+function Refresh-Path {
+    $machinePath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+    $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+    $env:Path = "$machinePath;$userPath"
+}
+
 function Install-WithWinget {
     param(
         [string]$Command,
@@ -26,18 +32,33 @@ function Install-WithWinget {
 
     Write-Host "$Name not found. Installing with winget..."
     winget install --id $WingetId -e --accept-package-agreements --accept-source-agreements
-    Write-Host "$Name install command completed. Restart PowerShell if the command is still unavailable."
+    Refresh-Path
+
+    if (Test-CommandExists $Command) {
+        Write-Host "$Name installed and detected."
+    }
+    else {
+        Write-Host "$Name install command completed, but command is not visible in this PowerShell session yet."
+        Write-Host "If the next validation fails, restart PowerShell and run this same file again."
+    }
 }
 
 function Get-PythonCommand {
+    Refresh-Path
     if (Test-CommandExists 'python') { return 'python' }
     if (Test-CommandExists 'py') { return 'py -3' }
     return $null
 }
 
+if (-not (Test-Path '.\scripts\one-click-install.ps1')) {
+    throw 'Run this script from the OpenRealTime repository root folder.'
+}
+
 Install-WithWinget -Command 'git' -WingetId 'Git.Git' -Name 'Git'
 Install-WithWinget -Command 'node' -WingetId 'OpenJS.NodeJS.LTS' -Name 'Node.js LTS'
 Install-WithWinget -Command 'python' -WingetId 'Python.Python.3.12' -Name 'Python 3.12'
+
+Refresh-Path
 
 $pythonCommand = Get-PythonCommand
 if (-not $pythonCommand) { throw 'Python not found after installation attempt.' }
