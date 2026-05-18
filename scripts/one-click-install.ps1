@@ -30,7 +30,7 @@ function Install-WithWinget {
     Write-Host "$Name not found. Installing with winget..."
     winget install --id $WingetId -e --accept-package-agreements --accept-source-agreements
 
-    Write-Host "$Name install command completed. If this is the first install, restart PowerShell and run this script again if the command is still not found."
+    Write-Host "$Name install command completed. Restart PowerShell if the command is still unavailable."
 }
 
 function Get-PythonCommand {
@@ -52,11 +52,11 @@ Install-WithWinget -Command 'python' -WingetId 'Python.Python.3.12' -Name 'Pytho
 $pythonCommand = Get-PythonCommand
 
 if (-not $pythonCommand) {
-    throw 'Python was not found after installation attempt. Restart PowerShell and run this script again.'
+    throw 'Python not found after installation attempt.'
 }
 
 if (-not (Test-CommandExists 'npm')) {
-    throw 'npm was not found. Restart PowerShell after Node.js installation and run this script again.'
+    throw 'npm not found. Restart PowerShell after Node.js installation.'
 }
 
 Write-Host ''
@@ -98,40 +98,66 @@ if (-not (Test-Path $venvPython)) {
 & $venvPython -m pip install -r requirements.txt
 
 Write-Host ''
-Write-Host 'Installing Argos Translate English to Korean package if missing...'
+Write-Host 'Installing multilingual Argos Translate packages...'
 
 $argosInstallCode = @'
 from argostranslate import package, translate
 
 package.update_package_index()
-installed = translate.get_installed_languages()
+available_packages = package.get_available_packages()
+installed_languages = translate.get_installed_languages()
 
-has_en_ko = False
-for src in installed:
-    if src.code == "en":
-        for dst in installed:
-            if dst.code == "ko":
-                try:
-                    src.get_translation(dst)
-                    has_en_ko = True
-                except Exception:
-                    pass
+required_pairs = [
+    ("en", "ko"),
+    ("ko", "en"),
+    ("id", "ko"),
+    ("ko", "id"),
+    ("zh", "ko"),
+    ("ko", "zh"),
+    ("th", "ko"),
+    ("ko", "th"),
+    ("id", "en"),
+    ("zh", "en"),
+]
 
-if has_en_ko:
-    print("Argos en->ko package already installed. Skipping.")
-else:
-    available_packages = package.get_available_packages()
-    target = None
+for from_code, to_code in required_pairs:
+    exists = False
+
+    for src in installed_languages:
+        if src.code != from_code:
+            continue
+
+        for dst in installed_languages:
+            if dst.code != to_code:
+                continue
+
+            try:
+                src.get_translation(dst)
+                exists = True
+            except Exception:
+                pass
+
+    if exists:
+        print(f'{from_code}->{to_code} already installed')
+        continue
+
+    target_package = None
+
     for item in available_packages:
-        if item.from_code == "en" and item.to_code == "ko":
-            target = item
+        if item.from_code == from_code and item.to_code == to_code:
+            target_package = item
             break
-    if target is None:
-        print("No en->ko Argos package found in package index.")
-    else:
-        path = target.download()
+
+    if target_package is None:
+        print(f'No package available for {from_code}->{to_code}')
+        continue
+
+    try:
+        path = target_package.download()
         package.install_from_path(path)
-        print("Argos en->ko package installed.")
+        print(f'Installed {from_code}->{to_code}')
+    except Exception as exc:
+        print(f'Failed {from_code}->{to_code}: {exc}')
 '@
 
 $tempCode = Join-Path $env:TEMP 'openrealtime_argos_install.py'
