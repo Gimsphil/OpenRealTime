@@ -6,3 +6,6 @@ argostranslate
 pyttsx3
 webrtcvad
 rich
+python-dotenv
+pyannote.audio
+torch
