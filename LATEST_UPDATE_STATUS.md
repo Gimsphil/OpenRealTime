@@ -13,6 +13,14 @@ Latest verified updates:
 - fallback local translation mode
 - multilingual Argos package installer
 
+## Official install command
+
+Run this command from any PowerShell location:
+
+```powershell
+powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/Gimsphil/OpenRealTime/main/install-ORT.ps1 -OutFile $env:TEMP\install-ORT.ps1; powershell -ExecutionPolicy Bypass -File $env:TEMP\install-ORT.ps1"
+```
+
 Current launch flow:
 
 1. Run bootstrap command
