@@ -23,6 +23,7 @@ with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
 USER_LANGUAGE = CONFIG.get('default_user_language', 'ko')
 COUNTERPART_LANGUAGE = CONFIG.get('default_counterpart_language', 'en')
 MEETING_MODE = CONFIG.get('meeting_mode', False)
+MEETING_OPTIONS = CONFIG.get('meeting_options', {})
 
 SUPPORTED_LANGUAGES = {
     item['code']: item
@@ -35,17 +36,27 @@ console.print(f'[cyan]Counterpart language:[/cyan] {COUNTERPART_LANGUAGE}')
 console.print(f'[cyan]Meeting mode:[/cyan] {MEETING_MODE}')
 
 model = WhisperModel('base', device='auto', compute_type='int8')
-
 installed_languages = translate.get_installed_languages()
-
 translator_cache = {}
-
 engine = pyttsx3.init()
-
 audio_queue = queue.Queue()
+last_detected_foreign_language = COUNTERPART_LANGUAGE
+speaker_segment_counter = 0
+
+
+def normalize_code(code):
+    if code in SUPPORTED_LANGUAGES:
+        return SUPPORTED_LANGUAGES[code].get('argos_code', code)
+    return code
 
 
 def get_translation(source_code, target_code):
+    source_code = normalize_code(source_code)
+    target_code = normalize_code(target_code)
+
+    if source_code == target_code:
+        return None
+
     cache_key = f'{source_code}->{target_code}'
 
     if cache_key in translator_cache:
@@ -71,14 +82,23 @@ def get_translation(source_code, target_code):
         return None
 
 
-last_detected_foreign_language = COUNTERPART_LANGUAGE
+def translate_text(text, source_code, target_code):
+    if source_code == target_code:
+        return text
+
+    translator = get_translation(source_code, target_code)
+
+    if not translator:
+        return text
+
+    try:
+        return translator.translate(text)
+    except Exception:
+        return text
 
 
-def determine_target_language(detected_language):
+def determine_single_target_language(detected_language):
     global last_detected_foreign_language
-
-    if MEETING_MODE:
-        return USER_LANGUAGE
 
     if detected_language == USER_LANGUAGE:
         return last_detected_foreign_language
@@ -87,10 +107,48 @@ def determine_target_language(detected_language):
     return USER_LANGUAGE
 
 
+def determine_meeting_targets(detected_language):
+    targets = []
+
+    if MEETING_OPTIONS.get('output_to_user_language', True):
+        targets.append(USER_LANGUAGE)
+
+    if MEETING_OPTIONS.get('output_to_counterpart_language', True):
+        targets.append(COUNTERPART_LANGUAGE)
+
+    if MEETING_OPTIONS.get('output_to_common_language', True):
+        targets.append(MEETING_OPTIONS.get('common_language', 'en'))
+
+    for lang in MEETING_OPTIONS.get('meeting_output_languages', []):
+        targets.append(lang)
+
+    unique_targets = []
+
+    for target in targets:
+        if target and target not in unique_targets and target != detected_language:
+            unique_targets.append(target)
+
+    return unique_targets
+
+
+def classify_speaker_segment(detected_language):
+    global speaker_segment_counter
+    speaker_segment_counter += 1
+
+    if not MEETING_OPTIONS.get('speaker_separation', False):
+        return 'speaker_unknown'
+
+    participant_map = MEETING_OPTIONS.get('participant_language_map', {})
+
+    for speaker_id, language in participant_map.items():
+        if language == detected_language:
+            return speaker_id
+
+    return f'segment_{speaker_segment_counter}'
+
 
 def audio_callback(indata, frames, time, status):
     audio_queue.put(indata.copy())
-
 
 
 def process_audio():
@@ -108,53 +166,54 @@ def process_audio():
             multilingual=True,
         )
 
-        text = ''
-
-        for segment in segments:
-            text += segment.text
-
-        text = text.strip()
+        text = ''.join(segment.text for segment in segments).strip()
 
         if not text:
             continue
 
         detected_language = info.language or USER_LANGUAGE
+        speaker_id = classify_speaker_segment(detected_language)
 
-        target_language = determine_target_language(detected_language)
-
-        console.print(
-            f'[cyan]DETECTED:[/cyan] {detected_language}'
-        )
-
-        console.print(
-            f'[cyan]TARGET:[/cyan] {target_language}'
-        )
-
+        console.print(f'[magenta]SPEAKER:[/magenta] {speaker_id}')
+        console.print(f'[cyan]DETECTED:[/cyan] {detected_language}')
         console.print(f'[yellow]SOURCE:[/yellow] {text}')
 
-        translated = text
+        if MEETING_MODE:
+            targets = determine_meeting_targets(detected_language)
 
-        source_argos = SUPPORTED_LANGUAGES.get(
-            detected_language,
-            {}
-        ).get('argos_code', detected_language)
+            if not targets:
+                console.print('[yellow]No target language selected.[/yellow]')
+                continue
 
-        target_argos = SUPPORTED_LANGUAGES.get(
-            target_language,
-            {}
-        ).get('argos_code', target_language)
+            user_translation_for_voice = None
 
-        translator = get_translation(
-            source_argos,
-            target_argos,
-        )
+            for target_language in targets:
+                translated = translate_text(
+                    text,
+                    detected_language,
+                    target_language,
+                )
 
-        try:
-            if translator:
-                translated = translator.translate(text)
-        except Exception:
-            translated = text
+                console.print(
+                    f'[green]TRANSLATED {detected_language}->{target_language}:[/green] {translated}'
+                )
 
+                if target_language == USER_LANGUAGE:
+                    user_translation_for_voice = translated
+
+            if user_translation_for_voice:
+                try:
+                    engine.say(user_translation_for_voice)
+                    engine.runAndWait()
+                except Exception:
+                    pass
+
+            continue
+
+        target_language = determine_single_target_language(detected_language)
+        translated = translate_text(text, detected_language, target_language)
+
+        console.print(f'[cyan]TARGET:[/cyan] {target_language}')
         console.print(f'[green]TRANSLATED:[/green] {translated}')
 
         try:
