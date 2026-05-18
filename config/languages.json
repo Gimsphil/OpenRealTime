@@ -1,0 +1,49 @@
+{
+  "default_user_language": "ko",
+  "default_counterpart_language": "en",
+  "meeting_mode": false,
+  "supported_languages": [
+    {
+      "code": "ko",
+      "name": "Korean",
+      "native_name": "한국어",
+      "argos_code": "ko",
+      "openai_code": "ko"
+    },
+    {
+      "code": "en",
+      "name": "English",
+      "native_name": "English",
+      "argos_code": "en",
+      "openai_code": "en"
+    },
+    {
+      "code": "id",
+      "name": "Indonesian",
+      "native_name": "Bahasa Indonesia",
+      "argos_code": "id",
+      "openai_code": "id"
+    },
+    {
+      "code": "zh",
+      "name": "Chinese Simplified",
+      "native_name": "中文 简体",
+      "argos_code": "zh",
+      "openai_code": "zh"
+    },
+    {
+      "code": "zh-TW",
+      "name": "Chinese Traditional Taiwan",
+      "native_name": "中文 台灣",
+      "argos_code": "zt",
+      "openai_code": "zh"
+    },
+    {
+      "code": "th",
+      "name": "Thai",
+      "native_name": "ไทย",
+      "argos_code": "th",
+      "openai_code": "th"
+    }
+  ]
+}
