@@ -32,14 +32,14 @@ Write-Host ''
 
 if (-not (Has-OpenAiApiKey)) {
     Write-Host 'No OpenAI API key found.'
-    Write-Host 'Switching automatically to FREE local mode...'
+    Write-Host 'Switching automatically to FREE LOCAL WEB MODE...'
     Write-Host ''
 
-    powershell -ExecutionPolicy Bypass -File (Join-Path $RepoRoot 'scripts\run-local.ps1')
+    powershell -ExecutionPolicy Bypass -File (Join-Path $RepoRoot 'scripts\run-local-web.ps1')
     exit
 }
 
-Write-Host 'Starting ORT web server...'
+Write-Host 'Starting ORT realtime cloud web server...'
 Write-Host 'Chrome will open automatically.'
 Write-Host ''
 
