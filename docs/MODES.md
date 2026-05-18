@@ -46,7 +46,7 @@ Behavior:
 - foreign language -> translated into user language
 - user language -> translated into last detected foreign language
 
-## Meeting mode
+## Multilingual meeting mode
 
 Enable:
 
@@ -56,12 +56,68 @@ Enable:
 }
 ```
 
-Meeting mode behavior:
+Meeting mode capabilities:
 
-- multiple languages may be spoken continuously
-- language is auto-detected
-- all detected languages are translated into the user language
-- intended for multilingual meetings
+- multilingual meeting input
+- automatic language detection
+- translation routing
+- speaker separation option
+- common-language output
+- user-language output
+- counterpart-language output
+
+Example:
+
+```text
+Speaker A -> Korean
+Speaker B -> Taiwanese Chinese
+Speaker C -> Indonesian
+```
+
+The system flow:
+
+```text
+Automatic language detection
+  ↓
+Meeting segment separation
+  ↓
+Translation routing
+  ↓
+Outputs:
+  - user language
+  - counterpart language
+  - common meeting language
+```
+
+## Meeting routing options
+
+Configuration:
+
+```json
+{
+  "meeting_options": {
+    "speaker_separation": true,
+    "output_to_user_language": true,
+    "output_to_counterpart_language": true,
+    "output_to_common_language": true,
+    "common_language": "en"
+  }
+}
+```
+
+## Speaker separation
+
+Current local implementation:
+
+```text
+basic segment-based separation
+```
+
+Planned upgrade:
+
+```text
+pyannote speaker diarization
+```
 
 ## Local free mode
 
