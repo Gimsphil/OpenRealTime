@@ -61,11 +61,18 @@ function Restore-OrtIcon {
     if (Test-Path $icoPath) { return $icoPath }
 
     if (Test-Path $b64Path) {
-        $b64 = Get-Content $b64Path -Raw
-        $bytes = [Convert]::FromBase64String($b64)
-        [IO.File]::WriteAllBytes($icoPath, $bytes)
-        Write-Host "ORT icon restored: $icoPath"
-        return $icoPath
+        try {
+            $b64 = Get-Content $b64Path -Raw
+            $b64 = ($b64 -replace '\s', '')
+            $bytes = [Convert]::FromBase64String($b64)
+            [IO.File]::WriteAllBytes($icoPath, $bytes)
+            Write-Host "ORT icon restored: $icoPath"
+            return $icoPath
+        }
+        catch {
+            Write-Host "ORT icon file is invalid. Using default PowerShell icon instead."
+            return $null
+        }
     }
 
     return $null
