@@ -2,9 +2,12 @@ from fastapi import FastAPI, WebSocket
 from fastapi.responses import HTMLResponse
 import uvicorn
 import json
-import asyncio
+import tempfile
+from faster_whisper import WhisperModel
 
 app = FastAPI(title='ORT Local WebSocket Server')
+
+model = WhisperModel('base', compute_type='int8')
 
 HTML_PAGE = '''
 <!DOCTYPE html>
@@ -62,7 +65,7 @@ async function startMicrophone() {
     }
   };
 
-  mediaRecorder.start(1000);
+  mediaRecorder.start(3000);
 }
 
 document.getElementById('start').onclick = async () => {
@@ -107,37 +110,25 @@ document.getElementById('start').onclick = async () => {
 async def index():
     return HTMLResponse(HTML_PAGE)
 
-async def fake_translation_pipeline(websocket: WebSocket):
-    sample_messages = [
-        ('caption', 'Realtime microphone streaming active'),
-        ('translation', 'ko', '실시간 번역 활성화'),
-        ('translation', 'en', 'Realtime translation enabled'),
-        ('translation', 'id', 'Terjemahan realtime aktif'),
-        ('translation', 'zh-TW', '即時翻譯已啟用')
-    ]
+async def transcribe_audio_bytes(audio_bytes: bytes):
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.webm') as tmp:
+        tmp.write(audio_bytes)
+        temp_path = tmp.name
 
-    while True:
-        for item in sample_messages:
-            if item[0] == 'caption':
-                payload = {
-                    'type': 'caption',
-                    'text': item[1]
-                }
-            else:
-                payload = {
-                    'type': 'translation',
-                    'language': item[1],
-                    'text': item[2]
-                }
+    segments, info = model.transcribe(temp_path)
 
-            await websocket.send_text(json.dumps(payload))
-            await asyncio.sleep(2)
+    transcript = ' '.join(segment.text for segment in segments).strip()
+
+    return transcript, info.language
 
 @app.websocket('/ws')
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
 
-    sender = asyncio.create_task(fake_translation_pipeline(websocket))
+    await websocket.send_text(json.dumps({
+        'type': 'caption',
+        'text': 'ORT realtime local websocket connected'
+    }))
 
     try:
         while True:
@@ -145,12 +136,26 @@ async def websocket_endpoint(websocket: WebSocket):
 
             if 'bytes' in message and message['bytes']:
                 audio_bytes = message['bytes']
-                print(f'Received audio chunk: {len(audio_bytes)} bytes')
 
-    except Exception:
-        pass
-    finally:
-        sender.cancel()
+                transcript, detected_language = await transcribe_audio_bytes(audio_bytes)
+
+                if transcript:
+                    await websocket.send_text(json.dumps({
+                        'type': 'caption',
+                        'text': transcript
+                    }))
+
+                    await websocket.send_text(json.dumps({
+                        'type': 'translation',
+                        'language': detected_language,
+                        'text': transcript
+                    }))
+
+    except Exception as exc:
+        await websocket.send_text(json.dumps({
+            'type': 'caption',
+            'text': f'Connection closed: {exc}'
+        }))
 
 if __name__ == '__main__':
     uvicorn.run(app, host='0.0.0.0', port=3010)
