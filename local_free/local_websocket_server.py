@@ -4,10 +4,19 @@ import uvicorn
 import json
 import tempfile
 from faster_whisper import WhisperModel
+from argostranslate import translate
 
 app = FastAPI(title='ORT Local WebSocket Server')
 
 model = WhisperModel('base', compute_type='int8')
+
+TARGET_LANGUAGES = [
+    'ko',
+    'en',
+    'id',
+    'zh',
+    'th'
+]
 
 HTML_PAGE = '''
 <!DOCTYPE html>
@@ -30,13 +39,13 @@ button {
   margin-top: 20px;
   border: 1px solid #444;
   padding: 10px;
-  min-height: 120px;
+  min-height: 240px;
 }
 </style>
 </head>
 <body>
 <h1>ORT FREE LOCAL WEB MODE</h1>
-<p>Realtime local browser translation prototype</p>
+<p>Realtime local browser translation</p>
 <button id="start">START</button>
 <div id="status"></div>
 <div id="captions"></div>
@@ -48,7 +57,7 @@ const statusDiv = document.getElementById('status');
 const captionsDiv = document.getElementById('captions');
 
 function log(message) {
-  captionsDiv.innerHTML += '<div>' + message + '</div>';
+  captionsDiv.innerHTML = '<div>' + message + '</div>' + captionsDiv.innerHTML;
 }
 
 async function startMicrophone() {
@@ -65,7 +74,7 @@ async function startMicrophone() {
     }
   };
 
-  mediaRecorder.start(3000);
+  mediaRecorder.start(2500);
 }
 
 document.getElementById('start').onclick = async () => {
@@ -85,7 +94,7 @@ document.getElementById('start').onclick = async () => {
       const data = JSON.parse(event.data);
 
       if (data.type === 'caption') {
-        log('[TRANSCRIPT] ' + data.text);
+        log('[TRANSCRIPT][' + data.language + '] ' + data.text);
       }
 
       if (data.type === 'translation') {
@@ -110,6 +119,24 @@ document.getElementById('start').onclick = async () => {
 async def index():
     return HTMLResponse(HTML_PAGE)
 
+
+def translate_text(text: str, source_language: str, target_language: str):
+    try:
+        installed_languages = translate.get_installed_languages()
+
+        from_lang = next((x for x in installed_languages if x.code == source_language), None)
+        to_lang = next((x for x in installed_languages if x.code == target_language), None)
+
+        if not from_lang or not to_lang:
+            return text
+
+        translation = from_lang.get_translation(to_lang)
+        return translation.translate(text)
+
+    except Exception:
+        return text
+
+
 async def transcribe_audio_bytes(audio_bytes: bytes):
     with tempfile.NamedTemporaryFile(delete=False, suffix='.webm') as tmp:
         tmp.write(audio_bytes)
@@ -121,12 +148,14 @@ async def transcribe_audio_bytes(audio_bytes: bytes):
 
     return transcript, info.language
 
+
 @app.websocket('/ws')
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
 
     await websocket.send_text(json.dumps({
         'type': 'caption',
+        'language': 'system',
         'text': 'ORT realtime local websocket connected'
     }))
 
@@ -142,20 +171,30 @@ async def websocket_endpoint(websocket: WebSocket):
                 if transcript:
                     await websocket.send_text(json.dumps({
                         'type': 'caption',
-                        'text': transcript
-                    }))
-
-                    await websocket.send_text(json.dumps({
-                        'type': 'translation',
                         'language': detected_language,
                         'text': transcript
                     }))
 
+                    for target_language in TARGET_LANGUAGES:
+                        translated_text = translate_text(
+                            transcript,
+                            detected_language,
+                            target_language
+                        )
+
+                        await websocket.send_text(json.dumps({
+                            'type': 'translation',
+                            'language': target_language,
+                            'text': translated_text
+                        }))
+
     except Exception as exc:
         await websocket.send_text(json.dumps({
             'type': 'caption',
+            'language': 'system',
             'text': f'Connection closed: {exc}'
         }))
+
 
 if __name__ == '__main__':
     uvicorn.run(app, host='0.0.0.0', port=3010)
