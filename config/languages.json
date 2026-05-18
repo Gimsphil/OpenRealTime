@@ -1,7 +1,36 @@
 {
   "default_user_language": "ko",
   "default_counterpart_language": "en",
-  "meeting_mode": false,
+  "meeting_mode": true,
+  "meeting_options": {
+    "auto_detect_language": true,
+    "speaker_separation": true,
+    "speaker_separation_mode": "basic_segment",
+    "output_to_user_language": true,
+    "output_to_counterpart_language": true,
+    "output_to_common_language": true,
+    "common_language": "en",
+    "participant_language_map": {
+      "user": "ko",
+      "counterpart_default": "id",
+      "participant_1": "zh-TW",
+      "participant_2": "id"
+    },
+    "meeting_input_languages": [
+      "ko",
+      "en",
+      "id",
+      "zh",
+      "zh-TW",
+      "th"
+    ],
+    "meeting_output_languages": [
+      "ko",
+      "en",
+      "id",
+      "zh-TW"
+    ]
+  },
   "supported_languages": [
     {
       "code": "ko",
