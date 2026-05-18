@@ -1,4 +1,5 @@
 import json
+import os
 import queue
 import threading
 from pathlib import Path
@@ -7,6 +8,7 @@ import numpy as np
 import pyttsx3
 import sounddevice as sd
 from argostranslate import translate
+from dotenv import load_dotenv
 from faster_whisper import WhisperModel
 from rich.console import Console
 
@@ -15,7 +17,11 @@ console = Console()
 SAMPLE_RATE = 16000
 BLOCK_DURATION = 3
 
-CONFIG_PATH = Path(__file__).resolve().parent.parent / 'config' / 'languages.json'
+BASE_PATH = Path(__file__).resolve().parent
+CONFIG_PATH = BASE_PATH.parent / 'config' / 'languages.json'
+ENV_PATH = BASE_PATH / '.env'
+
+load_dotenv(ENV_PATH)
 
 with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
     CONFIG = json.load(f)
@@ -24,6 +30,7 @@ USER_LANGUAGE = CONFIG.get('default_user_language', 'ko')
 COUNTERPART_LANGUAGE = CONFIG.get('default_counterpart_language', 'en')
 MEETING_MODE = CONFIG.get('meeting_mode', False)
 MEETING_OPTIONS = CONFIG.get('meeting_options', {})
+HF_TOKEN = os.getenv('HF_TOKEN')
 
 SUPPORTED_LANGUAGES = {
     item['code']: item
@@ -35,6 +42,26 @@ console.print(f'[cyan]User language:[/cyan] {USER_LANGUAGE}')
 console.print(f'[cyan]Counterpart language:[/cyan] {COUNTERPART_LANGUAGE}')
 console.print(f'[cyan]Meeting mode:[/cyan] {MEETING_MODE}')
 
+DIARIZATION_AVAILABLE = False
+DIARIZATION_PIPELINE = None
+
+if HF_TOKEN:
+    try:
+        from pyannote.audio import Pipeline
+
+        DIARIZATION_PIPELINE = Pipeline.from_pretrained(
+            'pyannote/speaker-diarization-3.1',
+            use_auth_token=HF_TOKEN,
+        )
+
+        DIARIZATION_AVAILABLE = True
+
+        console.print('[green]Pyannote diarization enabled[/green]')
+    except Exception as exc:
+        console.print(f'[yellow]Pyannote diarization unavailable:[/yellow] {exc}')
+else:
+    console.print('[yellow]HF_TOKEN not set. Using basic segment speaker separation.[/yellow]')
+
 model = WhisperModel('base', device='auto', compute_type='int8')
 installed_languages = translate.get_installed_languages()
 translator_cache = {}
@@ -42,6 +69,7 @@ engine = pyttsx3.init()
 audio_queue = queue.Queue()
 last_detected_foreign_language = COUNTERPART_LANGUAGE
 speaker_segment_counter = 0
+speaker_voice_map = {}
 
 
 def normalize_code(code):
@@ -134,6 +162,11 @@ def determine_meeting_targets(detected_language):
 def classify_speaker_segment(detected_language):
     global speaker_segment_counter
     speaker_segment_counter += 1
+
+    if DIARIZATION_AVAILABLE:
+        speaker_key = f'diarized_{speaker_segment_counter}'
+        speaker_voice_map[speaker_key] = detected_language
+        return speaker_key
 
     if not MEETING_OPTIONS.get('speaker_separation', False):
         return 'speaker_unknown'
