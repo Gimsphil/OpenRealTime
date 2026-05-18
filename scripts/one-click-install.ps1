@@ -1,6 +1,10 @@
 $ErrorActionPreference = 'Stop'
 
+$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+Set-Location $RepoRoot
+
 Write-Host '=== ORT One Click Install and Run ==='
+Write-Host "Repository root: $RepoRoot"
 Write-Host ''
 
 function Test-CommandExists {
@@ -51,9 +55,8 @@ function Get-PythonCommand {
 }
 
 function Restore-OrtIcon {
-    $repoRoot = (Get-Location).Path
-    $b64Path = Join-Path $repoRoot 'assets\ORT.ico.b64'
-    $icoPath = Join-Path $repoRoot 'assets\ORT.ico'
+    $b64Path = Join-Path $RepoRoot 'assets\ORT.ico.b64'
+    $icoPath = Join-Path $RepoRoot 'assets\ORT.ico'
 
     if (Test-Path $icoPath) { return $icoPath }
 
@@ -69,17 +72,16 @@ function Restore-OrtIcon {
 }
 
 function New-DesktopShortcut {
-    $repoRoot = (Get-Location).Path
     $desktop = [Environment]::GetFolderPath('Desktop')
     $shortcutPath = Join-Path $desktop 'ORT.lnk'
-    $runScript = Join-Path $repoRoot 'scripts\run.ps1'
+    $runScript = Join-Path $RepoRoot 'scripts\run.ps1'
     $iconPath = Restore-OrtIcon
 
     $shell = New-Object -ComObject WScript.Shell
     $shortcut = $shell.CreateShortcut($shortcutPath)
     $shortcut.TargetPath = 'powershell.exe'
     $shortcut.Arguments = "-ExecutionPolicy Bypass -NoExit -File `"$runScript`""
-    $shortcut.WorkingDirectory = $repoRoot
+    $shortcut.WorkingDirectory = $RepoRoot
 
     if ($iconPath) {
         $shortcut.IconLocation = $iconPath
@@ -94,8 +96,8 @@ function New-DesktopShortcut {
     Write-Host "Desktop shortcut created: $shortcutPath"
 }
 
-if (-not (Test-Path '.\scripts\one-click-install.ps1')) {
-    throw 'Run this script from the OpenRealTime repository root folder.'
+if (-not (Test-Path (Join-Path $RepoRoot 'scripts\one-click-install.ps1'))) {
+    throw 'ORT repository structure is invalid. scripts\one-click-install.ps1 was not found.'
 }
 
 Install-WithWinget -Command 'git' -WingetId 'Git.Git' -Name 'Git'
@@ -111,28 +113,28 @@ if (-not (Test-CommandExists 'npm')) { throw 'npm not found. Restart PowerShell 
 Write-Host ''
 Write-Host 'Preparing environment files...'
 
-if (-not (Test-Path '.\app\.env')) {
-    Copy-Item '.\app\.env.example' '.\app\.env'
+if (-not (Test-Path (Join-Path $RepoRoot 'app\.env'))) {
+    Copy-Item (Join-Path $RepoRoot 'app\.env.example') (Join-Path $RepoRoot 'app\.env')
     Write-Host 'Created app\.env'
 }
 else {
     Write-Host 'app\.env already exists. Skipping.'
 }
 
-if ((Test-Path '.\local_free\.env.example') -and -not (Test-Path '.\local_free\.env')) {
-    Copy-Item '.\local_free\.env.example' '.\local_free\.env'
+if ((Test-Path (Join-Path $RepoRoot 'local_free\.env.example')) -and -not (Test-Path (Join-Path $RepoRoot 'local_free\.env'))) {
+    Copy-Item (Join-Path $RepoRoot 'local_free\.env.example') (Join-Path $RepoRoot 'local_free\.env')
     Write-Host 'Created local_free\.env'
 }
 
 Write-Host ''
 Write-Host 'Installing Node app dependencies...'
-Push-Location '.\app'
+Push-Location (Join-Path $RepoRoot 'app')
 npm install
 Pop-Location
 
 Write-Host ''
 Write-Host 'Preparing local free mode Python environment...'
-Push-Location '.\local_free'
+Push-Location (Join-Path $RepoRoot 'local_free')
 
 if (-not (Test-Path '.\.venv')) {
     Invoke-Expression "$pythonCommand -m venv .venv"
@@ -222,4 +224,4 @@ Write-Host 'API key exists -> cloud mode'
 Write-Host 'No API key -> free local mode'
 Write-Host ''
 
-powershell -ExecutionPolicy Bypass -File '.\scripts\run.ps1'
+powershell -ExecutionPolicy Bypass -File (Join-Path $RepoRoot 'scripts\run.ps1')
