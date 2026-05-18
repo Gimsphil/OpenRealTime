@@ -50,6 +50,24 @@ function Get-PythonCommand {
     return $null
 }
 
+function New-DesktopShortcut {
+    $repoRoot = (Get-Location).Path
+    $desktop = [Environment]::GetFolderPath('Desktop')
+    $shortcutPath = Join-Path $desktop 'OpenRealTime.lnk'
+    $runScript = Join-Path $repoRoot 'scripts\run.ps1'
+
+    $shell = New-Object -ComObject WScript.Shell
+    $shortcut = $shell.CreateShortcut($shortcutPath)
+    $shortcut.TargetPath = 'powershell.exe'
+    $shortcut.Arguments = "-ExecutionPolicy Bypass -NoExit -File `"$runScript`""
+    $shortcut.WorkingDirectory = $repoRoot
+    $shortcut.IconLocation = 'powershell.exe,0'
+    $shortcut.Description = 'OpenRealTime realtime interpretation app'
+    $shortcut.Save()
+
+    Write-Host "Desktop shortcut created: $shortcutPath"
+}
+
 if (-not (Test-Path '.\scripts\one-click-install.ps1')) {
     throw 'Run this script from the OpenRealTime repository root folder.'
 }
@@ -167,7 +185,12 @@ Remove-Item $tempCode -ErrorAction SilentlyContinue
 Pop-Location
 
 Write-Host ''
+Write-Host 'Creating desktop shortcut...'
+New-DesktopShortcut
+
+Write-Host ''
 Write-Host '=== INSTALL READY ==='
+Write-Host 'Desktop shortcut: OpenRealTime.lnk'
 Write-Host 'Starting OpenRealTime automatic mode selection...'
 Write-Host 'API key exists -> cloud mode'
 Write-Host 'No API key -> free local mode'
